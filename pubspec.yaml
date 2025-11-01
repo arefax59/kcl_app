@@ -1,0 +1,53 @@
+name: kcl_app
+description: Application KCL multi-plateforme
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Base de données locale
+  sqflite: ^2.3.0
+  path: ^1.8.3
+  
+  # Interface utilisateur
+  cupertino_icons: ^1.0.6
+  
+  # Utilitaires
+  shared_preferences: ^2.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.3.5
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/images/
+
+# Configuration du splash screen
+flutter_native_splash:
+  color: "#1E3A8A"
+  image: assets/images/logo.png
+  android: true
+  ios: true
+  web: false
+
+# Configuration de l'icône de l'application
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/icon.png"
+  min_sdk_android: 21
+  # Configuration Android
+  adaptive_icon_background: "#1E3A8A"
+  adaptive_icon_foreground: "assets/images/icon.png"
+  # Configuration iOS
+  remove_alpha_ios: true
