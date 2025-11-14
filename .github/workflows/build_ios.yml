@@ -1,0 +1,70 @@
+name: Build iOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Type de build'
+        required: true
+        default: 'release'
+        type: choice
+        options:
+          - debug
+          - release
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build iOS (Debug)
+        if: github.event.inputs.build_type == 'debug'
+        run: |
+          flutter build ios --debug --no-codesign
+          mkdir -p releases
+          cd build/ios/iphoneos
+          zip -r ../../../releases/kcl_app_debug.ipa Runner.app
+
+      - name: Build iOS (Release)
+        if: github.event.inputs.build_type == 'release'
+        run: |
+          flutter build ios --release --no-codesign
+          mkdir -p releases
+          cd build/ios/iphoneos
+          zip -r ../../../releases/kcl_app_release.ipa Runner.app
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-${{ github.event.inputs.build_type }}
+          path: releases/*.ipa
+          retention-days: 30
+
+      - name: Create Release
+        if: github.event.inputs.build_type == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: releases/*.ipa
+          tag_name: ios-v${{ github.run_number }}
+          name: iOS Release v${{ github.run_number }}
+          body: |
+            Build iOS automatique
+            
+            - Type: ${{ github.event.inputs.build_type }}
+            - Commit: ${{ github.sha }}
+            - Date: ${{ github.event.head_commit.timestamp }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

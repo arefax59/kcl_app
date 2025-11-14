@@ -1,0 +1,3 @@
+# Ce fichier permet de garder le dossier releases dans Git
+# Les fichiers .apk et .ipa seront ignorés mais le dossier sera présent
+

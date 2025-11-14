@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Supabase configuration (contains sensitive keys)
+lib/config/supabase_config.dart
+
+# Releases (keep folder but ignore files)
+releases/*.apk
+releases/*.ipa
+!releases/.gitkeep

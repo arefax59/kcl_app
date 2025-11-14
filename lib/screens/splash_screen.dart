@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'login_screen.dart';
 import 'home_screen.dart';
 import 'admin_screen.dart';
+import 'chronopost_screen.dart';
+import 'dpd_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -48,30 +50,32 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     final rememberMe = prefs.getBool('rememberMe') ?? false;
     final username = prefs.getString('username');
     final isAdmin = prefs.getBool('isAdmin') ?? false;
+    final group = prefs.getString('group') ?? 'admin';
+
+    if (!mounted) return;
 
     if (rememberMe && username != null && username.isNotEmpty) {
       // L'utilisateur est déjà connecté, aller à l'écran approprié
+      Widget targetScreen;
       if (isAdmin) {
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => const AdminScreen(),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
-            transitionDuration: const Duration(milliseconds: 800),
-          ),
-        );
+        targetScreen = const AdminScreen();
+      } else if (group == 'chronopost') {
+        targetScreen = const ChronopostScreen();
+      } else if (group == 'dpd') {
+        targetScreen = const DpdScreen();
       } else {
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
-            transitionDuration: const Duration(milliseconds: 800),
-          ),
-        );
+        targetScreen = const HomeScreen();
       }
+      
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => targetScreen,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 800),
+        ),
+      );
     } else {
       // Aller à l'écran de connexion
       Navigator.of(context).pushReplacement(
@@ -96,7 +100,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -124,7 +128,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       borderRadius: BorderRadius.circular(30),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
+                          color: Colors.black.withValues(alpha: 0.3),
                           blurRadius: 20,
                           spreadRadius: 5,
                         ),

@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'home_screen.dart';
 import 'admin_screen.dart';
-import '../database/database_helper.dart';
+import 'chronopost_screen.dart';
+import 'dpd_screen.dart';
+import '../services/notification_service.dart';
+import '../services/supabase_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,9 +17,10 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final DatabaseHelper _dbHelper = DatabaseHelper();
+  final NotificationService _notificationService = NotificationService();
+  final SupabaseService _supabaseService = SupabaseService();
 
-  bool _rememberMe = false;
+  bool _rememberMe = true;
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _showForm = false;
@@ -88,6 +92,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         _usernameController.text = savedUsername;
         _passwordController.text = savedPassword;
         _rememberMe = true;
+        _obscurePassword = false;
       });
     }
   }
@@ -113,50 +118,63 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
     setState(() => _isLoading = true);
 
-    // Authentifier l'utilisateur
-    final user = await _dbHelper.authenticateUser(
-      _usernameController.text,
-      _passwordController.text,
-    );
+    try {
+      // Authentifier l'utilisateur avec Supabase
+      final user = await _supabaseService.authenticateUser(
+        _usernameController.text,
+        _passwordController.text,
+      );
 
-    setState(() => _isLoading = false);
+      setState(() => _isLoading = false);
 
-    if (user == null) {
-      _showSnackBar('Identifiant ou mot de passe incorrect', Colors.red);
+      if (user == null) {
+        _showSnackBar('Identifiant ou mot de passe incorrect', Colors.red);
+        return;
+      }
+
+      // Sauvegarder les identifiants
+      await _saveCredentials();
+
+      // Sauvegarder l'ID utilisateur et les informations
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('userId', user['id'] as String);
+      await prefs.setBool('isAdmin', user['is_admin'] == true);
+      await prefs.setString('group', user['group'] ?? 'admin');
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showSnackBar('Erreur de connexion: $e', Colors.red);
       return;
     }
-
-    // Sauvegarder les identifiants
-    await _saveCredentials();
-
-    // Sauvegarder l'ID utilisateur
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('userId', user['id']);
-    await prefs.setBool('isAdmin', user['is_admin'] == 1);
+    
+    // Écouter les notifications
+    _notificationService.listenToNotifications();
 
     if (mounted) {
+      final prefs = await SharedPreferences.getInstance();
+      final isAdmin = prefs.getBool('isAdmin') ?? false;
+      final group = prefs.getString('group') ?? 'admin';
+      
       // Rediriger vers l'écran approprié
-      if (user['is_admin'] == 1) {
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => const AdminScreen(),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
-            transitionDuration: const Duration(milliseconds: 500),
-          ),
-        );
+      Widget targetScreen;
+      if (isAdmin) {
+        targetScreen = const AdminScreen();
+      } else if (group == 'chronopost') {
+        targetScreen = const ChronopostScreen();
+      } else if (group == 'dpd') {
+        targetScreen = const DpdScreen();
       } else {
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
-            transitionDuration: const Duration(milliseconds: 500),
-          ),
-        );
+        targetScreen = const HomeScreen();
       }
+      
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => targetScreen,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 500),
+        ),
+      );
     }
   }
 
@@ -184,7 +202,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -217,7 +235,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                               borderRadius: BorderRadius.circular(25),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
+                                  color: Colors.black.withValues(alpha: 0.3),
                                   blurRadius: 20,
                                   spreadRadius: 5,
                                 ),
@@ -257,11 +275,11 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                         child: Container(
                           padding: const EdgeInsets.all(32),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.95),
+                            color: Colors.white.withValues(alpha: 0.95),
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
+                                color: Colors.black.withValues(alpha: 0.2),
                                 blurRadius: 20,
                                 spreadRadius: 5,
                               ),
@@ -421,10 +439,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                     const Color(0xFF3B82F6),
                                   );
                                 },
-                                child: Text(
+                                child: const Text(
                                   'Mot de passe oublié ?',
                                   style: TextStyle(
-                                    color: const Color(0xFF3B82F6),
+                                    color: Color(0xFF3B82F6),
                                     fontSize: 14,
                                   ),
                                 ),

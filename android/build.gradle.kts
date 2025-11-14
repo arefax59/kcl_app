@@ -1,3 +1,13 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // Google Services removed - Firebase no longer used
+    }
+}
+
 allprojects {
     repositories {
         google()

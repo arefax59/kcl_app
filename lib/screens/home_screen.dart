@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../database/database_helper.dart';
+import '../services/notification_service.dart';
+import '../services/supabase_service.dart';
 import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -11,57 +12,71 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final DatabaseHelper _dbHelper = DatabaseHelper();
-  List<Map<String, dynamic>> _dataList = [];
+  final NotificationService _notificationService = NotificationService();
+  final SupabaseService _supabaseService = SupabaseService();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
   String _username = '';
+  String? _userId;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
     _loadUsername();
+    // Écouter les notifications après un court délai pour s'assurer que l'utilisateur est connecté
+    Future.delayed(const Duration(milliseconds: 500), () {
+      _notificationService.listenToNotifications();
+    });
+  }
+  
+  @override
+  void dispose() {
+    _notificationService.dispose();
+    _titleController.dispose();
+    _contentController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUsername() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _username = prefs.getString('username') ?? 'Utilisateur';
-    });
-  }
-
-  Future<void> _loadData() async {
-    final data = await _dbHelper.getAllData();
-    setState(() {
-      _dataList = data;
+      _userId = prefs.getString('userId');
     });
   }
 
   Future<void> _addData() async {
     if (_titleController.text.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Veuillez entrer un titre')),
       );
       return;
     }
 
-    await _dbHelper.insertData({
-      'title': _titleController.text,
-      'content': _contentController.text,
-      'user_id': 1,
-      'synced': 0,
-      'created_at': DateTime.now().toIso8601String(),
-    });
+    try {
+      await _supabaseService.insertData({
+        'title': _titleController.text,
+        'content': _contentController.text,
+        'user_id': _userId ?? '',
+        'created_at': DateTime.now().toIso8601String(),
+      });
 
-    _titleController.clear();
-    _contentController.clear();
-    _loadData();
-    Navigator.of(context).pop();
+      _titleController.clear();
+      _contentController.clear();
+      if (!mounted) return;
+      Navigator.of(context).pop();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Données ajoutées avec succès')),
-    );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Données ajoutées avec succès')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
   }
 
   void _showAddDialog() {
@@ -176,120 +191,126 @@ class _HomeScreenState extends State<HomeScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF1E3A8A).withOpacity(0.1),
+              const Color(0xFF1E3A8A).withValues(alpha: 0.1),
               Colors.white,
             ],
           ),
         ),
-        child: _dataList.isEmpty
-            ? Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.inbox_outlined,
-                size: 100,
-                color: Colors.grey[400],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Aucune donnée',
-                style: TextStyle(
-                  fontSize: 20,
-                  color: Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Appuyez sur + pour ajouter',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[500],
-                ),
-              ),
-            ],
-          ),
-        )
-            : ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: _dataList.length,
-          itemBuilder: (context, index) {
-            final item = _dataList[index];
-            return Card(
-              elevation: 2,
-              margin: const EdgeInsets.only(bottom: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.all(16),
-                leading: CircleAvatar(
-                  backgroundColor: const Color(0xFF3B82F6),
-                  child: Text(
-                    item['title'][0].toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                title: Text(
-                  item['title'],
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        child: StreamBuilder<List<Map<String, dynamic>>>(
+          stream: _supabaseService.getAllDataStream(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (snapshot.hasError) {
+              return Center(
+                child: Text('Erreur: ${snapshot.error}'),
+              );
+            }
+
+            final dataList = snapshot.data ?? [];
+
+            if (dataList.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    if (item['content'] != null && item['content'].toString().isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          item['content'],
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                    Icon(
+                      Icons.inbox_outlined,
+                      size: 100,
+                      color: Colors.grey[400],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Aucune donnée',
+                      style: TextStyle(
+                        fontSize: 20,
+                        color: Colors.grey[600],
                       ),
+                    ),
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(
-                          item['synced'] == 1
-                              ? Icons.cloud_done
-                              : Icons.cloud_off,
-                          size: 16,
-                          color: item['synced'] == 1
-                              ? Colors.green
-                              : Colors.grey,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          item['synced'] == 1
-                              ? 'Synchronisé'
-                              : 'Non synchronisé',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
+                    Text(
+                      'Les données apparaîtront ici',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[500],
+                      ),
                     ),
                   ],
                 ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.sync),
-                  color: const Color(0xFF3B82F6),
-                  onPressed: () async {
-                    await _dbHelper.updateSyncStatus(item['id'], 1);
-                    _loadData();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Synchronisé')),
-                    );
-                  },
-                ),
-              ),
+              );
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: dataList.length,
+              itemBuilder: (context, index) {
+                final item = dataList[index];
+                return Card(
+                  elevation: 2,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(16),
+                    leading: CircleAvatar(
+                      backgroundColor: const Color(0xFF3B82F6),
+                      child: Text(
+                        (item['title'] as String? ?? '')
+                            .isNotEmpty
+                            ? (item['title'] as String)[0].toUpperCase()
+                            : '?',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    title: Text(
+                      item['title'] ?? '',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (item['content'] != null &&
+                            item['content'].toString().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              item['content'],
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.cloud_done,
+                              size: 16,
+                              color: Colors.green,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Synchronisé',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             );
           },
         ),
@@ -301,11 +322,5 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _contentController.dispose();
-    super.dispose();
-  }
 }
+
