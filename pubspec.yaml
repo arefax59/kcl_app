@@ -23,6 +23,14 @@ dependencies:
   # Utilitaires
   shared_preferences: ^2.2.2
   uuid: ^4.2.1
+  url_launcher: ^6.2.5
+  http: ^1.2.0
+  
+  # Carte
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  geolocator: ^13.0.1
+  geocoding: ^3.0.0
 
 dev_dependencies:
   flutter_test:

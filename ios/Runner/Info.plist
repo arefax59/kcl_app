@@ -47,5 +47,9 @@
 		<true/>
 		<key>UIStatusBarHidden</key>
 		<false/>
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>Cette application a besoin d'accéder à votre position pour afficher votre emplacement sur la carte et optimiser votre itinéraire.</string>
+		<key>NSLocationAlwaysUsageDescription</key>
+		<string>Cette application a besoin d'accéder à votre position pour afficher votre emplacement sur la carte et optimiser votre itinéraire.</string>
 	</dict>
 </plist>

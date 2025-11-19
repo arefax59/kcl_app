@@ -744,10 +744,13 @@ class _AdminScreenState extends State<AdminScreen> {
     final TextEditingController bodyController = TextEditingController();
     String selectedTarget = 'all'; // 'all', 'chronopost', 'dpd', ou 'user'
     String? selectedUserId;
+    
+    // Capturer le contexte du widget parent avant d'ouvrir le dialog
+    final parentContext = context;
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
+      builder: (dialogContext) => StatefulBuilder(
         builder: (context, setStateDialog) => AlertDialog(
           title: const Text('Envoyer un message'),
           content: SingleChildScrollView(
@@ -906,7 +909,7 @@ class _AdminScreenState extends State<AdminScreen> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop();
                 titleController.dispose();
                 bodyController.dispose();
               },
@@ -916,7 +919,7 @@ class _AdminScreenState extends State<AdminScreen> {
               onPressed: () async {
                 if (titleController.text.isEmpty || bodyController.text.isEmpty) {
                   if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(parentContext).showSnackBar(
                     const SnackBar(
                       content: Text('Veuillez remplir tous les champs'),
                       backgroundColor: Colors.red,
@@ -927,7 +930,7 @@ class _AdminScreenState extends State<AdminScreen> {
 
                 if (selectedTarget == 'user' && selectedUserId == null) {
                   if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(parentContext).showSnackBar(
                     const SnackBar(
                       content: Text('Veuillez sélectionner un utilisateur'),
                       backgroundColor: Colors.red,
@@ -969,11 +972,12 @@ class _AdminScreenState extends State<AdminScreen> {
                     dataId: dataId,
                   );
 
-                  if (!mounted) return;
-                  Navigator.of(context).pop();
+                  // Fermer le dialog avant d'afficher le SnackBar
+                  Navigator.of(dialogContext).pop();
                   titleController.dispose();
                   bodyController.dispose();
 
+                  // Vérifier que le widget parent est toujours monté avant d'afficher le SnackBar
                   if (!mounted) return;
                   String targetText = '';
                   if (selectedTarget == 'all') {
@@ -986,7 +990,7 @@ class _AdminScreenState extends State<AdminScreen> {
                     targetText = 'l\'utilisateur sélectionné';
                   }
                   
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(parentContext).showSnackBar(
                     SnackBar(
                       content: Text('Message envoyé à $targetText'),
                       backgroundColor: Colors.green,
@@ -994,8 +998,15 @@ class _AdminScreenState extends State<AdminScreen> {
                     ),
                   );
                 } catch (e) {
+                  // Fermer le dialog même en cas d'erreur
+                  if (Navigator.of(dialogContext).canPop()) {
+                    Navigator.of(dialogContext).pop();
+                  }
+                  titleController.dispose();
+                  bodyController.dispose();
+                  
                   if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(parentContext).showSnackBar(
                     SnackBar(
                       content: Text('Erreur: $e'),
                       backgroundColor: Colors.red,
