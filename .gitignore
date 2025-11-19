@@ -43,6 +43,38 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/local.properties
+/android/.gradle
+/android/app/build
+/android/build
+/android/.idea
+
+# iOS
+/ios/Pods
+/ios/.symlinks
+/ios/Flutter/Flutter.framework
+/ios/Flutter/Flutter.podspec
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/ephemeral
+/ios/Flutter/app.flx
+/ios/Flutter/app.zip
+/ios/Flutter/flutter_assets/
+/ios/Flutter/flutter_export_environment.sh
+/ios/ServiceDefinitions.json
+/ios/Runner/GeneratedPluginRegistrant.*
+
+# macOS
+/macos/Flutter/ephemeral
+/macos/Flutter/GeneratedPluginRegistrant.swift
+
+# Windows
+/windows/flutter/ephemeral
+/windows/flutter/generated_plugin_registrant.cc
+/windows/flutter/generated_plugin_registrant.h
+/windows/flutter/generated_plugins.cmake
+
+# Linux
+/linux/flutter/ephemeral
 
 # Supabase configuration (contains sensitive keys)
 lib/config/supabase_config.dart
@@ -51,3 +83,6 @@ lib/config/supabase_config.dart
 releases/*.apk
 releases/*.ipa
 !releases/.gitkeep
+
+# Codemagic
+.codemagic/

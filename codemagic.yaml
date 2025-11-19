@@ -1,7 +1,39 @@
-# Configuration Codemagic pour build iOS
-# Utilisez ce fichier si vous choisissez Codemagic au lieu de GitHub Actions
-
 workflows:
+  android-workflow:
+    name: Android Workflow
+    max_build_duration: 120
+    instance_type: linux_x2
+    environment:
+      flutter: stable
+      groups:
+        - keystore_credentials
+      vars:
+        APP_ID: "com.kcl.app"
+        PACKAGE_NAME: "com.kcl.app"
+    scripts:
+      - name: Get Flutter dependencies
+        script: |
+          flutter pub get
+      - name: Flutter analyze
+        script: |
+          flutter analyze
+      - name: Build Android APK
+        script: |
+          flutter build apk --release
+      - name: Build Android App Bundle
+        script: |
+          flutter build appbundle --release
+    artifacts:
+      - build/app/outputs/flutter-apk/app-release.apk
+      - build/app/outputs/bundle/release/app-release.aab
+    publishing:
+      email:
+        recipients:
+          - johann.kcl@gmail.com
+        notify:
+          success: true
+          failure: true
+
   ios-workflow:
     name: iOS Workflow
     max_build_duration: 120
@@ -10,10 +42,21 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
+      groups:
+        - app_store_credentials
+      vars:
+        APP_ID: "com.kcl.app"
+        BUNDLE_ID: "com.kcl.app"
     scripts:
       - name: Get Flutter dependencies
         script: |
           flutter pub get
+      - name: Flutter analyze
+        script: |
+          flutter analyze
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios && pod install
       - name: Build iOS
         script: |
           flutter build ios --release --no-codesign
@@ -22,8 +65,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - your-email@example.com
+          - johann.kcl@gmail.com
         notify:
           success: true
-          failure: false
-
+          failure: true
